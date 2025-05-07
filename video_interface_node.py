@@ -5,6 +5,9 @@ from geometry_msgs.msg import Point
 import gi
 import numpy as np
 import cv2
+import ultralytics  # Assuming ultralytics is installed for YOLOv8
+from ultralytics import YOLO
+import torch
 
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst
@@ -64,7 +67,19 @@ class VideoInterfaceNode(Node):
         cv2.waitKey(1)
 
         # TODO: Insert detection/tracking logic here to compute object position
+        print(ultralytics.__version__ , torch.cuda.get_device_name(0))
 
+        # Load a pretrained model on COCO datatset
+        model = YOLO("yolov8n.pt")
+        results = model.predict(source=frame, imgsz=(height,width), conf=0.25, device="cpu")
+        r = results[0]
+        # r.boxes.cls is a tensor of detected class IDs
+        detected_classes = r.boxes.cls.cpu().numpy()  # e.g. array([0, 3, 0, …])
+
+        if (detected_classes == 0).any():
+            print("there is a human!")
+        else:
+            print("no humans detected")
         # TODO: Insert detection/tracking logic here to compute object position
         # For demonstration, here we are publishing a dummy Point at origin
                 # Compute and publish object position:
