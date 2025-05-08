@@ -1,4 +1,6 @@
 from setuptools import setup
+import os
+from glob import glob
 
 package_name = 'relbot_video_interface'
 
@@ -11,6 +13,8 @@ setup(
         ('share/' + package_name, ['package.xml']),
         # Install launch files
         ('share/' + package_name + '/launch', ['launch/video_interface.launch.py']),
+        # Install weights directory
+        ('share/' + package_name + '/weights', glob('weights/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -21,7 +25,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'video_interface = relbot_video_interface.video_interface_node:main'
+            'video_interface = relbot_video_interface.video_interface_node:main',
+            'person_tracker = relbot_video_interface.person_tracker:main',
+            'person_follow = relbot_video_interface.person_follow:main'
         ],
     },
 )

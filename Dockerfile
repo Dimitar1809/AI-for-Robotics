@@ -30,9 +30,15 @@ RUN apt-get update && \
     # Install ROS2 desktop and Python libs
     apt-get update && \
     apt-get install -y --no-install-recommends \
-      ros-jazzy-desktop python3-colcon-common-extensions && \
+      ros-jazzy-desktop python3-colcon-common-extensions \
+      ros-jazzy-cv-bridge && \
     pip3 install --upgrade --break-system-packages \
-      colcon-common-extensions ultralytics opencv-python numpy && \
+      colcon-common-extensions \
+      ultralytics==8.0.134 \
+      deep-sort-realtime \
+      opencv-python==4.7.0.72 \
+      torch torchvision \
+      timm && \
     # Cleanup apt caches
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
