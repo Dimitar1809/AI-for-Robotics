@@ -8,6 +8,7 @@ import cv2
 import ultralytics  # Assuming ultralytics is installed for YOLOv8
 from ultralytics import YOLO
 import torch
+from cv_bridge import CvBridge
 
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst
@@ -28,6 +29,17 @@ class VideoInterfaceNode(Node):
         ))
         pipeline_str = self.get_parameter('gst_pipeline').value
 
+        # Declare parameters
+        self.declare_parameter('yolo_weights', 'best.pt')
+        self.declare_parameter('conf_threshold', 0.5)
+
+        # Get parameter values
+        yolo_weights = self.get_parameter('yolo_weights').get_parameter_value().string_value
+
+        # Get package share directory for weights
+        pkg_dir = get_package_share_directory('relbot_video_interface')
+        weights_path = os.path.join(pkg_dir, 'weights', yolo_weights)
+
         # Initialize GStreamer and build pipeline
         Gst.init(None)
         self.pipeline = Gst.parse_launch(pipeline_str)
@@ -36,6 +48,14 @@ class VideoInterfaceNode(Node):
         self.sink.set_property('drop', True)
         self.sink.set_property('max-buffers', 1)
         self.pipeline.set_state(Gst.State.PLAYING)
+
+        # Initialize CV Bridge
+        self.bridge = CvBridge()
+        # Load YOLOv8 model
+        self.model = YOLO(weights_path)
+        self.model.fuse()  # fuse model layers for speed
+        # Initialize DeepSORT tracker
+        self.tracker = DeepSort(max_age=30, n_init=3)
 
         # Timer: fires at ~30Hz to pull frames and publish positions
         # The period (1/30) sets how often on_timer() is called
@@ -66,20 +86,26 @@ class VideoInterfaceNode(Node):
         cv2.imshow('Input Stream', cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
         cv2.waitKey(1)
 
-        # TODO: Insert detection/tracking logic here to compute object position
-        print(ultralytics.__version__ , torch.cuda.get_device_name(0))
 
         # Load a pretrained model on COCO datatset
-        model = YOLO("yolov8n.pt")
-        results = model.predict(source=frame, imgsz=(height,width), conf=0.25, device="cpu")
-        r = results[0]
-        # r.boxes.cls is a tensor of detected class IDs
-        detected_classes = r.boxes.cls.cpu().numpy()  # e.g. array([0, 3, 0, …])
+        results = self.model.predict(frame, conf=0.5, iou=0.5, classes=[1])  # class 0 = person
+        detections = results[0]
+        # Prepare detections in DeepSORT format: [[xmin,ymin,width,height], confidence, class_id]
+        det_list = []
+        for box in detections.boxes:
+            cls_id = int(box.cls[0])
+            conf = float(box.conf[0])
+            if conf < 0.5:
+                continue
+            if cls_id == 1:  # helmet
+                print("there is a helmet!")
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                w = x2 - x1
+                h = y2 - y1
+                det_list.append([[x1, y1, w, h], conf, cls_id])
+            else:
+                print("no helmet detected")
 
-        if (detected_classes == 0).any():
-            print("there is a human!")
-        else:
-            print("no humans detected")
         # TODO: Insert detection/tracking logic here to compute object position
         # For demonstration, here we are publishing a dummy Point at origin
                 # Compute and publish object position:
