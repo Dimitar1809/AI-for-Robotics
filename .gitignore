@@ -1,0 +1,26 @@
+# Build directories
+build/
+install/
+log/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE files
+.vscode/
+.idea/
+
+# ROS 2 specific
+*.db
+*.db-*
+
+# Model weights
+*.pt
+*.pth
+ai4r_ws/src/relbot_video_interface/weights/
+
+# Other
+*.log
+.DS_Store 
