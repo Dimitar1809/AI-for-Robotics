@@ -519,7 +519,7 @@ class VideoInterfaceNode(Node):
 
         self.get_logger().info(f"Instantiating DPTDepthModel with backbone 'swin2t16_256' for MiDaS model: {midas_weights_filename}")
         self.model_midas = DPTDepthModel(
-            path=None,  # <<< Initialize with path=None
+            path=None, 
             backbone="swin2t16_256",
             non_negative=True
         )
