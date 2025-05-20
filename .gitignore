@@ -21,6 +21,10 @@ __pycache__/
 *.pth
 ai4r_ws/src/relbot_video_interface/weights/
 
+# MiDaS files
+MiDaS-3_1.tar.gz
+MiDaS_v3.1_contents/
+
 # Other
 *.log
 .DS_Store 

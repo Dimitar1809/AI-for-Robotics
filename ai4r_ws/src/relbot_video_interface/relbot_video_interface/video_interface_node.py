@@ -455,11 +455,10 @@ from ultralytics.nn.modules.block import C2f
 # MiDaS & transforms
 import sys
 sys.path.insert(0, "/home/robot/models/MiDaS")
-from midas.midas_net import MidasNet
+from midas.dpt_depth import DPTDepthModel
 # from midas.midas_net import MidasNet
-# from midas.dpt_depth import DPTDepthModel
 from midas.transforms import Resize, NormalizeImage, PrepareForNet
-from torchvision.transforms import Compose
+from torchvision.transforms import Compose 
 
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst
@@ -483,15 +482,21 @@ class VideoInterfaceNode(Node):
         # Declare parameters
         self.declare_parameter('yolo_weights', 'best.pt')
         self.declare_parameter('conf_threshold', 0.5)
-        self.declare_parameter('MiDaS_weights', 'midas_dpt_small_weights.pth')
+        self.declare_parameter('MiDaS_weights', 'dpt_swin2_tiny_256.pt')     # <<< New default
 
         # Get parameter values
         yolo_weights = self.get_parameter('yolo_weights').get_parameter_value().string_value
         MiDaS_weights = self.get_parameter('MiDaS_weights').get_parameter_value().string_value
         # Get package share directory for weights
         pkg_dir = get_package_share_directory('relbot_video_interface')
-        weights_path = os.path.join(pkg_dir, 'weights', yolo_weights)
-        MiDaS_path = os.path.join(pkg_dir, 'weights', MiDaS_weights)
+        weights_path = os.path.join(pkg_dir, 'weights', yolo_weights)\
+
+
+        self.get_logger().info(f"Loading custom YOLO model from: {weights_path}")
+        self.model = YOLO(weights_path)
+
+
+
 
         # Initialize GStreamer and build pipeline
         Gst.init(None)
@@ -506,45 +511,55 @@ class VideoInterfaceNode(Node):
         self.bridge = CvBridge()
         # Load YOLOv8 model
         torch.serialization.add_safe_globals([ultralytics.nn.tasks.DetectionModel, Sequential, Conv, Conv2d, BatchNorm2d, SiLU, C2f])
-        self.model = YOLO(weights_path)
 
-        
-        # self.model_midas = DPTDepthModel(path=MiDaS_path)
-        # self.model_midas = MidasNet(path=MiDaS_path)
-        self.model_midas = DPTDepthModel(path=MiDaS_path, non_negative=True)
-        # midas_small_transform_obj = Compose(
-        #     [
-        #         Resize(
-        #             256,  # Target width
-        #             256,  # Target height
-        #             resize_target=None,
-        #             keep_aspect_ratio=True,
-        #             ensure_multiple_of=32,
-        #             resize_method="upper_bound",
-        #             image_interpolation_method=cv2.INTER_CUBIC,
-        #         ),
-        #         NormalizeImage(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        #         PrepareForNet(),
-        #     ]
-        # )
-        # self.transform = midas_small_transform_obj
+        # New MiDaS loading approach
+        midas_weights_filename = self.get_parameter('MiDaS_weights').get_parameter_value().string_value
+        pkg_dir = get_package_share_directory('relbot_video_interface') 
+        midas_weights_path = os.path.join(pkg_dir, 'weights', midas_weights_filename)
 
-        dpt_compatible_transform = Compose(
+        self.get_logger().info(f"Instantiating DPTDepthModel with backbone 'swin2t16_256' for MiDaS model: {midas_weights_filename}")
+        self.model_midas = DPTDepthModel(
+            path=None,  # <<< Initialize with path=None
+            backbone="swin2t16_256",
+            non_negative=True
+        )
+
+        self.get_logger().info(f"Attempting to load state_dict for MiDaS from local file: {midas_weights_path}")
+        try:
+            # Use your _load_no_safe function which wraps torch.load with weights_only=False
+            # This _torch_load is the one you defined at the top of your script.
+            state_dict = torch.load(midas_weights_path, map_location=torch.device('cpu')) 
+
+            # Some checkpoints might have the state_dict nested, common in training checkpoints
+            # but official release .pt files from MiDaS are usually direct state_dicts.
+            # We can add a check just in case, though it might not be needed for official .pt files.
+            if "state_dict" in state_dict:
+                state_dict = state_dict["state_dict"]
+            elif "model" in state_dict: # Another common key
+                state_dict = state_dict["model"]
+
+            self.model_midas.load_state_dict(state_dict)
+            self.get_logger().info("Successfully loaded MiDaS model weights using explicit load_state_dict.")
+        except Exception as e:
+            self.get_logger().error(f"Error explicitly loading MiDaS state_dict from {midas_weights_path}: {e}")
+            raise # Re-raise the exception to see the full traceback
+
+        dpt_swin2_tiny_transform = Compose(
             [
                 Resize(
-                    384, 
-                    384,  
+                    256,  # Target width for dpt_swin2_tiny_256
+                    256,  # Target height for dpt_swin2_tiny_256
                     resize_target=None,
                     keep_aspect_ratio=True,
-                    ensure_multiple_of=32,  # Or 14, 16 - ADJUST IF NEEDED
-                    resize_method="minimal",
+                    ensure_multiple_of=32,  # Common for MiDaS DPT models, should be fine for Swin too
+                    resize_method="minimal", 
                     image_interpolation_method=cv2.INTER_CUBIC,
                 ),
-                NormalizeImage(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]), # Common for DPT
+                NormalizeImage(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]), # Standard DPT normalization
                 PrepareForNet(),
             ]
         )
-        self.transform = dpt_compatible_transform
+        self.transform = dpt_swin2_tiny_transform 
         self.model.fuse()  # fuse model layers for speed
         # Initialize DeepSORT tracker
         self.tracker = DeepSort(max_age=30, n_init=3)

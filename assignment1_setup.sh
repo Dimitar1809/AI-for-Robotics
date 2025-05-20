@@ -7,6 +7,10 @@ IMAGE_NAME="gstream-ros2-jazzy-ubuntu24"
 HOST_FOLDER="${1:-$(pwd)/ai4r_ws/src}"    # default to $(pwd)/ai4r_ws/src
 CONTAINER_FOLDER="/ai4r_ws/src"
 
+# Video host directory
+HOST_VIDEO_FOLDER="/home/leonie/leonie/robot_videos"
+CONTAINER_VIDEO_FOLDER="/opt/mounted_videos"
+
 # Build image if missing
 if ! docker image inspect "${IMAGE_NAME}" > /dev/null 2>&1; then
   echo "Building Docker image: ${IMAGE_NAME}..."
@@ -29,13 +33,16 @@ elif docker ps -a --filter "name=^/${CONTAINER_NAME}$" --format '{{.Names}}' | g
   docker exec -it "${CONTAINER_NAME}" bash
 else
   echo "Creating and launching new container: ${CONTAINER_NAME}"
+  set -x
   docker run -it \
     --name "${CONTAINER_NAME}" \
     --net=host \
     -e DISPLAY="$DISPLAY" \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v "${HOST_FOLDER}":"${CONTAINER_FOLDER}" \
+    -v "${HOST_VIDEO_FOLDER}":"${CONTAINER_VIDEO_FOLDER}":ro \
     -e QT_X11_NO_MITSHM=1 \
     --privileged \
-    "${IMAGE_NAME}" bash
+    "${IMAGE_NAME}"
+    set +x
 fi

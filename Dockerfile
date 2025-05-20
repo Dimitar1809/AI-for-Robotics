@@ -38,14 +38,12 @@ RUN apt-get update && \
       deep_sort_realtime \
       opencv-python==4.7.0.72 \
       torch torchvision \
-      timm && \
+      timm==0.6.11 && \
     # Cleanup apt caches
     apt-get clean && rm -rf /var/lib/apt/lists/*
     
-RUN mkdir -p /home/robot/models && \
-    echo "INFO: Cloning MiDaS repository into /home/robot/models/MiDaS..." && \
-    git clone https://github.com/isl-org/MiDaS.git /home/robot/models/MiDaS && \
-    echo "INFO: MiDaS repository cloned."
+RUN mkdir -p /home/robot/models/MiDaS
+COPY MiDaS_v3.1_contents/ /home/robot/models/MiDaS/
 
 RUN echo 'source /opt/ros/jazzy/setup.bash' >> /root/.bashrc && \
     echo '# export ROS_DOMAIN_ID=<RELBot_ID>  # set per robot' >> /root/.bashrc
