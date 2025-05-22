@@ -38,7 +38,7 @@ RUN apt-get update && \
       deep_sort_realtime \
       opencv-python==4.7.0.72 \
       torch torchvision \
-      timm==0.6.11 && \
+      timm==0.6.12 && \
     # Cleanup apt caches
     apt-get clean && rm -rf /var/lib/apt/lists/*
     
