@@ -1,4 +1,6 @@
 ## To make the RelBot to follow the person with helmet run the same commands as before (given in the github: https://github.com/UAV-Centre-ITC/AI4R_RELBot ),
+Before running the RelBot:
+pip install --upgrade --break-system-packages timm==0.6.13
 
 One small change is to use:
 cd /ai4r_ws
