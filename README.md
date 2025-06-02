@@ -2,8 +2,11 @@
 
 One small change is to use:
 cd /ai4r_ws
+
 colcon build --symlink-install <-- this is different 
+
 source install/setup.bash
+
 ros2 launch relbot_video_interface video_interface.launch.py
 
 It should be noted that in order to use the different ML models, they have to be in the weights folder, next to the **relbot_video_interface folder.**
